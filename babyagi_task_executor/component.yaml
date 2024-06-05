@@ -1,0 +1,36 @@
+name: "babyagi_task_executor"
+author: "naptha"
+version: "0.1.0"
+description: "A tool for naptha's babyagi."
+license: "MIT"
+
+models:
+  default_model_provider: "ollama"
+  ollama:
+    model: "ollama/phi"
+    max_tokens: 1000
+    temperature: 0
+    api_base: "http://localhost:11434"
+
+inputs:
+  system_message: "You are a helpful AI assistant."
+  user_message_template: |
+    You are given the following task: {{task}}.
+    The task is to accomplish the following objective: {{objective}}.
+
+    <INSTRUCTIONS>
+    1. Perform the task.
+    2. Return the result of the task.
+    </INSTRUCTIONS>
+
+    Result:
+  save: false
+  location: "ipfs"
+
+outputs:
+  save: false
+  location: "node"
+
+implementation:
+  package:
+    entrypoint: "run.py"
