@@ -18,11 +18,10 @@ def run(inputs: InputSchema, worker_nodes = None, orchestrator_node = None, flow
     ]
 
     result = completion(
-        model=cfg["models"]["ollama"]["model"],
+        model=cfg["models"]["openai"]["model"],
         messages=messages,
-        temperature=cfg["models"]["ollama"]["temperature"],
-        max_tokens=cfg["models"]["ollama"]["max_tokens"],
-        api_base=cfg["models"]["ollama"]["api_base"],
+        temperature=cfg["models"]["openai"]["temperature"],
+        max_tokens=cfg["models"]["openai"]["max_tokens"],
     ).choices[0].message.content
 
     logger.info(f"Result: {result}")

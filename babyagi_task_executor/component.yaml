@@ -5,12 +5,16 @@ description: "A tool for naptha's babyagi."
 license: "MIT"
 
 models:
-  default_model_provider: "ollama"
+  default_model_provider: "openai"
   ollama:
     model: "ollama/gemma"
     max_tokens: 1000
     temperature: 0
     api_base: "http://localhost:11434"
+  openai:
+    model: "openai/gpt-3.5-turbo"
+    max_tokens: 1000
+    temperature: 0
 
 inputs:
   system_message: "You are a helpful AI assistant."
