@@ -6,10 +6,11 @@ import yaml
 
 logger = get_logger(__name__)
 
-def run(inputs: InputSchema, worker_nodes = None, orchestrator_node = None, flow_run = None, cfg: dict = None):
+def run(inputs: InputSchema, *args, **kwargs):
     logger.info(f"Running with inputs {inputs.objective}")
     logger.info(f"Running with inputs {inputs.task}")
-
+    cfg = kwargs["cfg"]
+    
     user_prompt = cfg["inputs"]["user_message_template"].replace("{{task}}", inputs.task).replace("{{objective}}", inputs.objective)
 
     messages = [
