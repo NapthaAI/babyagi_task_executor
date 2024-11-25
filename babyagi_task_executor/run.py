@@ -1,44 +1,74 @@
-from babyagi_task_executor.schemas import InputSchema
-from babyagi_task_executor.utils import get_logger
+#!/usr/bin/env python
+from dotenv import load_dotenv
+from babyagi_task_executor.schemas import InputSchema, TaskExecutorPromptSchema, TaskExecutorAgentConfig
+import json
 from litellm import completion
-import yaml
+import os
+from naptha_sdk.schemas import AgentDeployment, AgentRunInput
+from naptha_sdk.utils import get_logger
 
+load_dotenv()
 
 logger = get_logger(__name__)
 
-def run(inputs: InputSchema, *args, **kwargs):
-    logger.info(f"Running with inputs {inputs.objective}")
-    logger.info(f"Running with inputs {inputs.task}")
-    cfg = kwargs["cfg"]
-    
-    user_prompt = cfg["inputs"]["user_message_template"].replace("{{task}}", inputs.task).replace("{{objective}}", inputs.objective)
+class TaskExecutorAgent:
+    def __init__(self, agent_deployment: AgentDeployment):
+        self.agent_deployment = agent_deployment
 
-    messages = [
-        {"role": "system", "content": cfg["inputs"]["system_message"]},
-        {"role": "user", "content": user_prompt}
-    ]
+    def execute_task(self, inputs: InputSchema):
+        if isinstance(self.agent_deployment.agent_config, dict):
+            self.agent_deployment.agent_config = TaskExecutorAgentConfig(**self.agent_deployment.agent_config)
 
-    result = completion(
-        model=cfg["models"]["openai"]["model"],
-        messages=messages,
-        temperature=cfg["models"]["openai"]["temperature"],
-        max_tokens=cfg["models"]["openai"]["max_tokens"],
-    ).choices[0].message.content
+        user_prompt = self.agent_deployment.agent_config.user_message_template.replace("{{task}}", inputs.tool_input_data.task).replace("{{objective}}", inputs.tool_input_data.objective)
 
-    logger.info(f"Result: {result}")
+        messages = [
+            {"role": "system", "content": json.dumps(self.agent_deployment.agent_config.system_prompt)},
+            {"role": "user", "content": user_prompt}
+        ]
 
-    return result
+        api_key = None if self.agent_deployment.agent_config.llm_config.client == "ollama" else ("EMPTY" if self.agent_deployment.agent_config.llm_config.client == "vllm" else os.getenv("OPENAI_API_KEY"))
+
+        response = completion(
+            model=self.agent_deployment.agent_config.llm_config.model,
+            messages=messages,
+            temperature=self.agent_deployment.agent_config.llm_config.temperature,
+            max_tokens=self.agent_deployment.agent_config.llm_config.max_tokens,
+            api_base=self.agent_deployment.agent_config.llm_config.api_base,
+            api_key=api_key
+        )
+
+        response = response.choices[0].message.content
+        logger.info(f"Response: {response}")
+
+        return response
+
+def run(agent_run: AgentRunInput, *args, **kwargs):
+    logger.info(f"Running with inputs {agent_run.inputs.tool_input_data}")
+
+    task_executor_agent = TaskExecutorAgent(agent_run.agent_deployment)
+    method = getattr(task_executor_agent, agent_run.inputs.tool_name, None)
+
+    return method(agent_run.inputs)
 
 
 if __name__ == "__main__":
-    with open("babyagi_task_executor/component.yaml", "r") as f:
-        cfg = yaml.safe_load(f)
+    from naptha_sdk.client.naptha import Naptha
+    from naptha_sdk.configs import load_agent_deployments
 
-    inputs = InputSchema(
-        task="Weather pattern between year 1900 and 2000?", 
-        objective="Write a blog post about the weather in London."
+    naptha = Naptha()
+
+    # Configs
+    agent_deployments = load_agent_deployments("babyagi_task_executor/configs/agent_deployments.json", load_persona_data=False, load_persona_schema=False)
+
+    input_params = InputSchema(
+        tool_name="execute_task",
+        tool_input_data=TaskExecutorPromptSchema(task="Weather pattern between year 1900 and 2000?", objective="Write a blog post about the weather in London."),
     )
 
-    run(inputs, cfg=cfg)
+    agent_run = AgentRunInput(
+        inputs=input_params,
+        agent_deployment=agent_deployments[0],
+        consumer_id=naptha.user.id,
+    )
 
-
+    response = run(agent_run)
