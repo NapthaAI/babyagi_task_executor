@@ -65,7 +65,7 @@ if __name__ == "__main__":
     naptha = Naptha()
 
     # Configs
-    deployment = asyncio.run(setup_module_deployment("agent", "babyagi_task_executor/configs/deployments.json", node_url = os.getenv("NODE_URL")))
+    deployment = asyncio.run(setup_module_deployment("agent", "babyagi_task_executor/configs/deployment.json", node_url = os.getenv("NODE_URL")))
     deployment = AgentDeployment(**deployment.model_dump())
     print("BabyAGI Task Executor Deployment:", deployment)
 
