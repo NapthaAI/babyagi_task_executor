@@ -2,6 +2,7 @@
 from dotenv import load_dotenv
 from babyagi_task_executor.schemas import InputSchema, TaskExecutorAgentConfig
 import json
+from naptha_sdk.inference import InferenceClient
 from naptha_sdk.schemas import AgentDeployment, AgentRunInput
 from naptha_sdk.utils import get_logger
 from naptha_sdk.user import sign_consumer_id
@@ -15,6 +16,7 @@ logger = get_logger(__name__)
 class TaskExecutorAgent:
     def __init__(self, agent_deployment: AgentDeployment):
         self.agent_deployment = agent_deployment
+        self.node = InferenceClient(self.agent_deployment.node)
 
     async def execute_task(self, inputs: InputSchema):
         if isinstance(self.agent_deployment.config, dict):
@@ -37,7 +39,7 @@ class TaskExecutorAgent:
             "max_tokens": llm_config.max_tokens
         }
 
-        response = await naptha.node.run_inference(
+        response = await self.node.run_inference(
             input_
         )
 
