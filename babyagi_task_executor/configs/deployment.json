@@ -2,16 +2,15 @@
     {
         "name": "agent_deployment_1",
         "module": {"name": "babyagi_task_executor"},
-        "worker_node_url": "http://localhost:7001",
-        "agent_config": {
+        "node": {"ip": "localhost"},
+        "config": {
             "config_name": "TaskExecutorAgentConfig",
-            "llm_config": {"config_name": "model_2"},
+            "llm_config": {"config_name": "model_1"},
             "persona_module" : null,
             "system_prompt": {
                 "role": "You are a helpful AI assistant.",
                 "persona": ""
-            },
-            "user_message_template": "You are given the following task: {{task}}. The task is to accomplish the following objective: {{objective}}."
+            }
         }
     }
 ]
