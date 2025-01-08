@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 from dotenv import load_dotenv
-from babyagi_task_executor.schemas import InputSchema, TaskExecutorPromptSchema, TaskExecutorAgentConfig
+from babyagi_task_executor.schemas import InputSchema, TaskExecutorAgentConfig
 import json
-import os
 from naptha_sdk.schemas import AgentDeployment, AgentRunInput
 from naptha_sdk.utils import get_logger
+from naptha_sdk.user import sign_consumer_id
+from typing import Dict
 import asyncio
 
 load_dotenv()
@@ -20,7 +21,7 @@ class TaskExecutorAgent:
             self.agent_deployment.config = TaskExecutorAgentConfig(**self.agent_deployment.config)
         
         user_message_template = "You are given the following task: {{task}}. The task is to accomplish the following objective: {{objective}}."
-        user_prompt = user_message_template.replace("{{task}}", inputs.tool_input_data.task).replace("{{objective}}", inputs.tool_input_data.objective)
+        user_prompt = user_message_template.replace("{{task}}", inputs["tool_input_data"]["task"]).replace("{{objective}}", inputs["tool_input_data"]["objective"])
 
         messages = [
             {"role": "system", "content": json.dumps(self.agent_deployment.config.system_prompt)},
@@ -48,13 +49,14 @@ class TaskExecutorAgent:
             logger.error(f"Failed to parse response: {response}. Error: {e}")
             return
 
-async def run(agent_run: AgentRunInput, *args, **kwargs):
-    logger.info(f"Running with inputs {agent_run.inputs.tool_input_data}")
+async def run(module_run: Dict, *args, **kwargs):
+    module_run = AgentRunInput(**module_run)
+    logger.info(f"Running with inputs {module_run.inputs['tool_input_data']}")
 
-    task_executor_agent = TaskExecutorAgent(agent_run.deployment)
-    method = getattr(task_executor_agent, agent_run.inputs.tool_name, None)
+    task_executor_agent = TaskExecutorAgent(module_run.deployment)
+    method = getattr(task_executor_agent, module_run.inputs['tool_name'], None)
 
-    return await method(agent_run.inputs)
+    return await method(module_run.inputs)
 
 
 if __name__ == "__main__":
@@ -69,16 +71,20 @@ if __name__ == "__main__":
     deployment = AgentDeployment(**deployment.model_dump())
     print("BabyAGI Task Executor Deployment:", deployment)
 
-    input_params = InputSchema(
-        tool_name="execute_task",
-        tool_input_data=TaskExecutorPromptSchema(task="Weather pattern between year 1900 and 2000?", objective="Write a blog post about the weather in London."),
-    )
+    input_params: Dict = {
+        "tool_name": "execute_task",
+        "tool_input_data": {
+            "objective": "Write a blog post about the weather in London.",
+            "task": "Weather pattern between year 1900 and 2000?"
+        }
+    }
 
-    agent_run = AgentRunInput(
-        inputs=input_params,
-        deployment=deployment,
-        consumer_id=naptha.user.id,
-    )
+    agent_run: Dict = {
+        "inputs": input_params,
+        "deployment": deployment,
+        "consumer_id": naptha.user.id,
+        "signature": sign_consumer_id(naptha.user.id, os.getenv("PRIVATE_KEY"))
+    }
 
     response = asyncio.run(run(agent_run))
     logger.info(f"Final Response: {response}")
